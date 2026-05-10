@@ -2,6 +2,7 @@
 // stored as SHA-256(salt + pin) in localStorage. Plain PIN never persisted.
 
 const PIN_KEY = "vault.pin";
+import { savePinToMongo, getPinFromMongo } from "./server-actions";
 const UNLOCK_KEY = "vault.unlocked";
 
 export type PinRecord = { salt: string; hash: string };
@@ -14,6 +15,26 @@ const COMMON_PINS = new Set([
   "54321", "43210", "13579", "24680", "12321",
   "13131", "12121", "10101", "10000", "11223",
 ]);
+
+export async function hasPin(): Promise<boolean> {
+  const pinData = await getPinFromMongo();
+  return pinData !== null;
+}
+
+export async function setPin(pin: string): Promise<void> {
+  const salt = randomSalt();
+  const hash = await hashPin(pin, salt);
+  await savePinToMongo(salt, hash); // SAVES TO MONGO
+  setUnlocked(true);
+}
+
+export async function verifyPin(pin: string): Promise<boolean> {
+  const pinData = await getPinFromMongo();
+  if (!pinData) return false;
+  
+  const hash = await hashPin(pin, pinData.salt);
+  return hash === pinData.hash; // VERIFIES AGAINST MONGO
+}
 
 export function validatePinComplexity(pin: string): string | null {
   if (!/^\d{5}$/.test(pin)) return "Use exactly 5 digits.";
@@ -47,31 +68,6 @@ function randomSalt(): string {
   const arr = new Uint8Array(16);
   crypto.getRandomValues(arr);
   return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export function hasPin(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!localStorage.getItem(PIN_KEY);
-}
-
-export async function setPin(pin: string): Promise<void> {
-  const salt = randomSalt();
-  const hash = await hashPin(pin, salt);
-  const rec: PinRecord = { salt, hash };
-  localStorage.setItem(PIN_KEY, JSON.stringify(rec));
-  setUnlocked(true);
-}
-
-export async function verifyPin(pin: string): Promise<boolean> {
-  const raw = localStorage.getItem(PIN_KEY);
-  if (!raw) return false;
-  try {
-    const rec = JSON.parse(raw) as PinRecord;
-    const hash = await hashPin(pin, rec.salt);
-    return hash === rec.hash;
-  } catch {
-    return false;
-  }
 }
 
 export async function changePin(currentPin: string, newPin: string): Promise<boolean> {

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import CryptoJS from "crypto-js";
+import { saveEntriesToMongo, getEntriesFromMongo } from "./server-actions";
 
 export const CATEGORIES = ["Account", "PIN", "Wi-Fi", "Card", "Note"] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -23,38 +25,49 @@ export const entryInputSchema = entrySchema.omit({
 });
 export type EntryInput = z.infer<typeof entryInputSchema>;
 
-const KEY = "vault.entries";
+function getEncryptionKey() {
+  return sessionStorage.getItem("vault.unlocked.key") || "fallback-key";
+}
 
-export function getEntries(): Entry[] {
+export async function getEntries(): Promise<Entry[]> {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((e): e is Entry => entrySchema.safeParse(e).success);
-  } catch {
+    const encryptedRaw = await getEntriesFromMongo();
+    if (!encryptedRaw) return [];
+    
+    // DECRYPT THE DATA FROM MONGO
+    const bytes = CryptoJS.AES.decrypt(encryptedRaw, getEncryptionKey());
+    const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
+    
+    const parsed = JSON.parse(decryptedStr);
+    return parsed.filter((e: any): e is Entry => entrySchema.safeParse(e).success);
+  } catch (error) {
+    console.error("Decryption failed", error);
     return [];
   }
 }
 
-export function getEntry(id: string): Entry | undefined {
-  return getEntries().find((e) => e.id === id);
+async function writeAll(entries: Entry[]): Promise<void> {
+  // ENCRYPT THE DATA BEFORE SENDING TO MONGO
+  const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), getEncryptionKey()).toString();
+  await saveEntriesToMongo(ciphertext);
 }
 
-function writeAll(entries: Entry[]): void {
-  localStorage.setItem(KEY, JSON.stringify(entries));
+export async function getEntry(id: string): Promise<Entry | undefined> {
+  const entries = await getEntries();
+  return entries.find((e) => e.id === id);
 }
 
-export function saveEntry(input: EntryInput, id?: string): Entry {
+// NOTE: Because fetching from Mongo takes time, saveEntry is now ASYNC
+export async function saveEntry(input: EntryInput, id?: string): Promise<Entry> {
   const now = Date.now();
-  const entries = getEntries();
+  const entries = await getEntries();
   if (id) {
     const idx = entries.findIndex((e) => e.id === id);
     if (idx >= 0) {
       const updated: Entry = { ...entries[idx], ...input, updatedAt: now };
       entries[idx] = updated;
-      writeAll(entries);
+      await writeAll(entries);
       return updated;
     }
   }
@@ -65,25 +78,27 @@ export function saveEntry(input: EntryInput, id?: string): Entry {
     updatedAt: now,
   };
   entries.push(created);
-  writeAll(entries);
+  await writeAll(entries);
   return created;
 }
 
-export function deleteEntry(id: string): void {
-  writeAll(getEntries().filter((e) => e.id !== id));
+export async function deleteEntry(id: string): Promise<void> {
+  const entries = await getEntries();
+  await writeAll(entries.filter((e) => e.id !== id));
 }
 
-export function exportJSON(): string {
-  return JSON.stringify(getEntries(), null, 2);
+export async function exportJSON(): Promise<string> {
+  const entries = await getEntries();
+  return JSON.stringify(entries, null, 2);
 }
 
-export function importJSON(json: string): number {
+export async function importJSON(json: string): Promise<number> {
   const parsed = JSON.parse(json);
   if (!Array.isArray(parsed)) throw new Error("Invalid file");
   const valid = parsed
     .map((e) => entrySchema.safeParse(e))
     .filter((r) => r.success)
     .map((r) => r.data as Entry);
-  writeAll(valid);
+  await writeAll(valid);
   return valid.length;
 }
