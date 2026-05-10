@@ -8,8 +8,10 @@ import { hasPin, setPin, validatePinComplexity } from "@/lib/pin";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/setup")({
-  beforeLoad: () => {
-    if (typeof window !== "undefined" && hasPin()) throw redirect({ to: "/" });
+  beforeLoad: async () => { // Must be async
+    if (typeof window !== "undefined" && await hasPin()) { // Must await
+      throw redirect({ to: "/" });
+    }
   },
   head: () => ({ meta: [{ title: "Create your PIN — Grandma's Vault" }] }),
   component: SetupPage,

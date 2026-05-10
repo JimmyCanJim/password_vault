@@ -11,9 +11,9 @@ import { toast } from "sonner";
 const JARED_PHONE = "+15555555555";
 
 export const Route = createFileRoute("/unlock")({
-  beforeLoad: () => {
+  beforeLoad: async () => {
     if (typeof window === "undefined") return;
-    if (!hasPin()) throw redirect({ to: "/setup" });
+    if (!(await hasPin())) throw redirect({ to: "/setup" });
     if (isUnlocked()) throw redirect({ to: "/" });
   },
   head: () => ({ meta: [{ title: "Unlock — Grandma's Vault" }] }),

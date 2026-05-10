@@ -1,27 +1,31 @@
-// src/lib/db.ts
-import mongoose from "mongoose";
+import { MongoClient, ServerApiVersion } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://<YOUR_USER>:<YOUR_PASS>@cluster.mongodb.net/grandmas-vault";
+declare global {
+  // Use var for global assignment in TS
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
 
-let isConnected = false;
+const uri = process.env.MONGODB_URI || "";
 
-export const connectDB = async () => {
-  if (isConnected) return;
-  try {
-    const db = await mongoose.connect(MONGODB_URI);
-    isConnected = db.connections[0].readyState === 1;
-    console.log("MongoDB Connected!");
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
+let client: MongoClient;
+let clientPromise: Promise<MongoClient>;
+
+export async function getDb() {
+  if (!uri) {
+    throw new Error('MONGODB_URI is missing. Set it with: wrangler secret put MONGODB_URI');
   }
-};
 
-// We create a single document for Grandma's Vault
-const VaultSchema = new mongoose.Schema({
-  vaultId: { type: String, required: true, unique: true }, // e.g., "grandma-1"
-  pinSalt: { type: String, required: true },
-  pinHash: { type: String, required: true },
-  encryptedEntries: { type: String, default: "" }
-});
-
-export const VaultModel = mongoose.models.Vault || mongoose.model("Vault", VaultSchema);
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      }
+    });
+    global._mongoClientPromise = client.connect();
+  }
+  
+  const connectedClient = await global._mongoClientPromise;
+  return connectedClient.db("grandmas-vault");
+}
