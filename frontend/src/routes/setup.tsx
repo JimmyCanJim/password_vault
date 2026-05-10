@@ -56,7 +56,7 @@ function SetupPage() {
         </div>
         {step === "create" && (
           <p className="font-serif italic text-sm mb-3" style={{ color: "var(--seal)" }}>
-            From Jared. Happy Mother's Day, you menace.
+            From Jared. Happy Mother's Day.
           </p>
         )}
         <h1 className="text-3xl font-serif mb-2">

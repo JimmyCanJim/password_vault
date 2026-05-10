@@ -21,10 +21,12 @@ export async function hasPin(): Promise<boolean> {
   return pinData !== null;
 }
 
+// Inside src/lib/pin.ts
 export async function setPin(pin: string): Promise<void> {
   const salt = randomSalt();
   const hash = await hashPin(pin, salt);
-  await savePinToMongo(salt, hash); // SAVES TO MONGO
+  // Change this line to pass the data object:
+  await savePinToMongo({ data: { salt, hash } }); 
   setUnlocked(true);
 }
 

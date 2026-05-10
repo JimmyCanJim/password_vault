@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import { CategoryDot } from "@/components/vault/CategoryDot";
 import { CopyButton } from "@/components/vault/CopyButton";
 import { SecretField } from "@/components/vault/SecretField";
-import { deleteEntry, getEntry } from "@/lib/vault";
+import { deleteEntry, getEntry, type Entry } from "@/lib/vault";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_locked/vault/$id/view")({
@@ -14,8 +15,19 @@ export const Route = createFileRoute("/_locked/vault/$id/view")({
 function ViewEntry() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const entry = getEntry(id);
+  const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
 
+  // Fetch the data on mount
+  useEffect(() => {
+    getEntry(id).then(setEntry);
+  }, [id]);
+
+  // 1. Loading State
+  if (entry === undefined) {
+    return <div className="p-20 text-center font-serif italic text-muted-foreground">Unlocking...</div>;
+  }
+
+  // 2. Not Found State
   if (!entry) {
     return (
       <main className="min-h-screen flex items-center justify-center px-6">
@@ -32,6 +44,7 @@ function ViewEntry() {
     );
   }
 
+  // 3. Success State
   return (
     <main className="min-h-screen pb-12 fade-up">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur rainbow-border-b px-4 py-3 flex items-center gap-3">
@@ -84,9 +97,9 @@ function ViewEntry() {
 
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             if (confirm(`Delete "${entry.title}"?`)) {
-              deleteEntry(entry.id);
+              await deleteEntry(entry.id); // Must await the async delete
               toast.success("Deleted");
               navigate({ to: "/vault" });
             }
@@ -100,6 +113,7 @@ function ViewEntry() {
   );
 }
 
+// Helper component
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>

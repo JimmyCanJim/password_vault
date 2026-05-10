@@ -1,7 +1,6 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
 declare global {
-  // Use var for global assignment in TS
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 

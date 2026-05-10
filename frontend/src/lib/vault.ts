@@ -47,10 +47,11 @@ export async function getEntries(): Promise<Entry[]> {
   }
 }
 
+// Inside src/lib/vault.ts
 async function writeAll(entries: Entry[]): Promise<void> {
-  // ENCRYPT THE DATA BEFORE SENDING TO MONGO
   const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), getEncryptionKey()).toString();
-  await saveEntriesToMongo(ciphertext);
+  // Change this line to pass the data object:
+  await saveEntriesToMongo({ data: { encryptedData: ciphertext } });
 }
 
 export async function getEntry(id: string): Promise<Entry | undefined> {
