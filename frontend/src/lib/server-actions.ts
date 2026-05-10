@@ -1,14 +1,16 @@
 // src/lib/server-actions.ts
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "./db";
+import { z } from "zod";
 
 const VAULT_ID = "grandma-main";
 
 export const savePinToMongo = createServerFn({ method: "POST" })
-  .inputValidator((data: { salt: string; hash: string }) => data)
+  .inputValidator(z.object({ salt: z.string(), hash: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDb();
-    await db.collection("vaults").updateOne(
+    const collection = db.collection("vaults");
+    await collection.updateOne(
       { vaultId: VAULT_ID },
       { $set: { pinSalt: data.salt, pinHash: data.hash } },
       { upsert: true }
@@ -19,16 +21,18 @@ export const savePinToMongo = createServerFn({ method: "POST" })
 export const getPinFromMongo = createServerFn({ method: "GET" })
   .handler(async () => {
     const db = await getDb();
-    const vault = await db.collection("vaults").findOne({ vaultId: VAULT_ID });
+    const collection = db.collection("vaults");
+    const vault = await collection.findOne({ vaultId: VAULT_ID });
     if (!vault) return null;
     return { salt: vault.pinSalt as string, hash: vault.pinHash as string };
   });
 
 export const saveEntriesToMongo = createServerFn({ method: "POST" })
-  .inputValidator((data: { encryptedData: string }) => data)
+  .inputValidator(z.object({ encryptedData: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDb();
-    await db.collection("vaults").updateOne(
+    const collection = db.collection("vaults");
+    await collection.updateOne(
       { vaultId: VAULT_ID },
       { $set: { encryptedEntries: data.encryptedData } },
       { upsert: true }
@@ -39,6 +43,7 @@ export const saveEntriesToMongo = createServerFn({ method: "POST" })
 export const getEntriesFromMongo = createServerFn({ method: "GET" })
   .handler(async () => {
     const db = await getDb();
-    const vault = await db.collection("vaults").findOne({ vaultId: VAULT_ID });
+    const collection = db.collection("vaults");
+    const vault = await collection.findOne({ vaultId: VAULT_ID });
     return (vault?.encryptedEntries as string) || "";
   });

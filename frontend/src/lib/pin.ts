@@ -1,6 +1,4 @@
-// PIN management: 5-digit numeric PIN with complexity validation,
-// stored as SHA-256(salt + pin) in localStorage. Plain PIN never persisted.
-
+// src/lib/pin.ts
 const PIN_KEY = "vault.pin";
 import { savePinToMongo, getPinFromMongo } from "./server-actions";
 const UNLOCK_KEY = "vault.unlocked";
@@ -21,12 +19,11 @@ export async function hasPin(): Promise<boolean> {
   return pinData !== null;
 }
 
-// Inside src/lib/pin.ts
 export async function setPin(pin: string): Promise<void> {
   const salt = randomSalt();
   const hash = await hashPin(pin, salt);
-  // Change this line to pass the data object:
-  await savePinToMongo({ data: { salt, hash } }); 
+  await savePinToMongo({ data: { salt, hash } }); // PASSED AS DATA OBJECT
+  sessionStorage.setItem("vault.unlocked.key", pin); // FIXED: SAVE ENCRYPTION KEY
   setUnlocked(true);
 }
 
@@ -35,7 +32,11 @@ export async function verifyPin(pin: string): Promise<boolean> {
   if (!pinData) return false;
   
   const hash = await hashPin(pin, pinData.salt);
-  return hash === pinData.hash; // VERIFIES AGAINST MONGO
+  if (hash === pinData.hash) {
+    sessionStorage.setItem("vault.unlocked.key", pin); // FIXED: SAVE ENCRYPTION KEY
+    return true;
+  }
+  return false;
 }
 
 export function validatePinComplexity(pin: string): string | null {
@@ -43,10 +44,8 @@ export function validatePinComplexity(pin: string): string | null {
   if (COMMON_PINS.has(pin)) return "That PIN is too common — try something less obvious.";
   if (/^(\d)\1{4}$/.test(pin)) return "All the same digit isn't safe.";
 
-  // No 3+ same digits in a row
   if (/(\d)\1{2,}/.test(pin)) return "Avoid repeating the same digit three times in a row.";
 
-  // No straight ascending or descending run of 5
   const digits = pin.split("").map(Number);
   let asc = true, desc = true;
   for (let i = 1; i < 5; i++) {
@@ -84,8 +83,12 @@ export function isUnlocked(): boolean {
 }
 
 export function setUnlocked(state: boolean): void {
-  if (state) sessionStorage.setItem(UNLOCK_KEY, "1");
-  else sessionStorage.removeItem(UNLOCK_KEY);
+  if (state) {
+    sessionStorage.setItem(UNLOCK_KEY, "1");
+  } else {
+    sessionStorage.removeItem(UNLOCK_KEY);
+    sessionStorage.removeItem("vault.unlocked.key"); // CLEAR KEY ON LOCK
+  }
 }
 
 export function lock(): void {

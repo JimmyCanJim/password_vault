@@ -1,3 +1,4 @@
+// src/lib/vault.ts
 import { z } from "zod";
 import CryptoJS from "crypto-js";
 import { saveEntriesToMongo, getEntriesFromMongo } from "./server-actions";
@@ -39,6 +40,8 @@ export async function getEntries(): Promise<Entry[]> {
     const bytes = CryptoJS.AES.decrypt(encryptedRaw, getEncryptionKey());
     const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
     
+    if (!decryptedStr) return []; // Return empty if decryption fails (wrong key)
+
     const parsed = JSON.parse(decryptedStr);
     return parsed.filter((e: any): e is Entry => entrySchema.safeParse(e).success);
   } catch (error) {
@@ -47,11 +50,10 @@ export async function getEntries(): Promise<Entry[]> {
   }
 }
 
-// Inside src/lib/vault.ts
 async function writeAll(entries: Entry[]): Promise<void> {
+  // ENCRYPT THE DATA BEFORE SENDING TO MONGO
   const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), getEncryptionKey()).toString();
-  // Change this line to pass the data object:
-  await saveEntriesToMongo({ data: { encryptedData: ciphertext } });
+  await saveEntriesToMongo({ data: { encryptedData: ciphertext } }); // PASSED AS DATA OBJECT
 }
 
 export async function getEntry(id: string): Promise<Entry | undefined> {
@@ -59,7 +61,6 @@ export async function getEntry(id: string): Promise<Entry | undefined> {
   return entries.find((e) => e.id === id);
 }
 
-// NOTE: Because fetching from Mongo takes time, saveEntry is now ASYNC
 export async function saveEntry(input: EntryInput, id?: string): Promise<Entry> {
   const now = Date.now();
   const entries = await getEntries();
