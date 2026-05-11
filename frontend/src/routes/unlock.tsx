@@ -8,7 +8,7 @@ import { hasPin, isUnlocked, setUnlocked, verifyPin, wipeEverything } from "@/li
 import { toast } from "sonner";
 
 // Jared's phone — edit this to your real number so the SMS link works.
-const JARED_PHONE = "+15555555555";
+const JARED_PHONE = "+27 981 0111";
 
 export const Route = createFileRoute("/unlock")({
   beforeLoad: async () => {
@@ -53,7 +53,7 @@ function UnlockPage() {
           <Elephant size={130} className="relative z-10" />
         </div>
         <h1 className="text-3xl font-serif mb-2">Prove it's you</h1>
-        <p className="text-muted-foreground mb-8">Five digits. You got this, Grandma.</p>
+        <p className="text-muted-foreground mb-8">Five digits. You got this, Ouma. Just five.</p>
 
         <PinPad value={pin} onChange={setPin} />
 
@@ -74,7 +74,7 @@ function UnlockPage() {
             </p>
             <a
               href={`sms:${JARED_PHONE}?&body=${encodeURIComponent(
-                "Hi Jared — it's Grandma. I forgot my vault PIN. Help! 🐘",
+                "Hi Jared. I forgot my vault PIN. Help! Jared is just the best isn't he?",
               )}`}
               className="block text-center w-full rounded-full bg-primary text-primary-foreground py-3 font-medium border-2"
               style={{

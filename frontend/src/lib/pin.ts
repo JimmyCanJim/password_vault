@@ -1,6 +1,8 @@
 // src/lib/pin.ts
-const PIN_KEY = "vault.pin";
 import { savePinToMongo, getPinFromMongo } from "./server-actions";
+import { getEntries, forceReEncrypt } from "./vault"; // <-- NEW IMPORT
+
+const PIN_KEY = "vault.pin";
 const UNLOCK_KEY = "vault.unlocked";
 
 export type PinRecord = { salt: string; hash: string };
@@ -19,11 +21,44 @@ export async function hasPin(): Promise<boolean> {
   return pinData !== null;
 }
 
+// --- NEW MILITARY-GRADE CRYPTO FUNCTIONS ---
+function randomSalt(): string {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// 1. Stretch the 5-digit PIN into a strong 256-bit Master Encryption Key
+export async function deriveMasterKey(pin: string, saltHex: string): Promise<string> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", enc.encode(pin), { name: "PBKDF2" }, false, ["deriveBits"]
+  );
+  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt, iterations: 600000, hash: "SHA-256" },
+    keyMaterial, 256
+  );
+  
+  return Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// 2. Hash the Master Key so the database never sees the actual decryption key
+async function hashForDatabase(masterKeyHex: string): Promise<string> {
+  const data = new TextEncoder().encode("SERVER_AUTH_" + masterKeyHex);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+// -------------------------------------------
+
 export async function setPin(pin: string): Promise<void> {
   const salt = randomSalt();
-  const hash = await hashPin(pin, salt);
-  await savePinToMongo({ data: { salt, hash } }); // PASSED AS DATA OBJECT
-  sessionStorage.setItem("vault.unlocked.key", pin); // FIXED: SAVE ENCRYPTION KEY
+  const masterKey = await deriveMasterKey(pin, salt);
+  const hash = await hashForDatabase(masterKey);
+  
+  await savePinToMongo({ data: { salt, hash } }); 
+  sessionStorage.setItem("vault.unlocked.key", masterKey); // Save the strong key!
   setUnlocked(true);
 }
 
@@ -31,12 +66,29 @@ export async function verifyPin(pin: string): Promise<boolean> {
   const pinData = await getPinFromMongo();
   if (!pinData) return false;
   
-  const hash = await hashPin(pin, pinData.salt);
+  const masterKey = await deriveMasterKey(pin, pinData.salt);
+  const hash = await hashForDatabase(masterKey);
+  
   if (hash === pinData.hash) {
-    sessionStorage.setItem("vault.unlocked.key", pin); // FIXED: SAVE ENCRYPTION KEY
+    sessionStorage.setItem("vault.unlocked.key", masterKey);
     return true;
   }
   return false;
+}
+
+export async function changePin(currentPin: string, newPin: string): Promise<boolean> {
+  if (!(await verifyPin(currentPin))) return false;
+  
+  // FIXED BUG: Fetch entries using the OLD key first
+  const entries = await getEntries();
+  
+  // Set the NEW pin (updates DB and sessionStorage with new key)
+  await setPin(newPin);
+  
+  // Re-encrypt all the entries with the NEW key and save to DB!
+  await forceReEncrypt(entries);
+  
+  return true;
 }
 
 export function validatePinComplexity(pin: string): string | null {
@@ -57,25 +109,6 @@ export function validatePinComplexity(pin: string): string | null {
   return null;
 }
 
-async function hashPin(pin: string, salt: string): Promise<string> {
-  const data = new TextEncoder().encode(salt + pin);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function randomSalt(): string {
-  const arr = new Uint8Array(16);
-  crypto.getRandomValues(arr);
-  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export async function changePin(currentPin: string, newPin: string): Promise<boolean> {
-  if (!(await verifyPin(currentPin))) return false;
-  await setPin(newPin);
-  return true;
-}
 
 export function isUnlocked(): boolean {
   if (typeof window === "undefined") return false;

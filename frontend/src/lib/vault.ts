@@ -29,19 +29,28 @@ export type EntryInput = z.infer<typeof entryInputSchema>;
 function getEncryptionKey() {
   return sessionStorage.getItem("vault.unlocked.key") || "fallback-key";
 }
-
 export async function getEntries(): Promise<Entry[]> {
   if (typeof window === "undefined") return [];
   try {
     const encryptedRaw = await getEntriesFromMongo();
     if (!encryptedRaw) return [];
     
-    // DECRYPT THE DATA FROM MONGO
-    const bytes = CryptoJS.AES.decrypt(encryptedRaw, getEncryptionKey());
+    // NEW: Handle proper AES decryption with IV
+    const parts = encryptedRaw.split(":");
+    if (parts.length !== 2) return []; 
+    
+    const [ivHex, ciphertext] = parts;
+    const key = CryptoJS.enc.Hex.parse(getEncryptionKey());
+    const iv = CryptoJS.enc.Hex.parse(ivHex);
+    
+    const bytes = CryptoJS.AES.decrypt(ciphertext, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+    });
     const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
     
-    if (!decryptedStr) return []; // Return empty if decryption fails (wrong key)
-
+    if (!decryptedStr) return [];
     const parsed = JSON.parse(decryptedStr);
     return parsed.filter((e: any): e is Entry => entrySchema.safeParse(e).success);
   } catch (error) {
@@ -51,11 +60,20 @@ export async function getEntries(): Promise<Entry[]> {
 }
 
 async function writeAll(entries: Entry[]): Promise<void> {
-  // ENCRYPT THE DATA BEFORE SENDING TO MONGO
-  const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), getEncryptionKey()).toString();
-  await saveEntriesToMongo({ data: { encryptedData: ciphertext } }); // PASSED AS DATA OBJECT
+  // NEW: Handle proper AES encryption with Random IV
+  const key = CryptoJS.enc.Hex.parse(getEncryptionKey());
+  const iv = CryptoJS.lib.WordArray.random(128 / 8); // 16 random bytes
+  
+  const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), key, {
+      iv: iv,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+  });
+  
+  // Store IV and Ciphertext together
+  const payload = iv.toString() + ":" + ciphertext.toString();
+  await saveEntriesToMongo({ data: { encryptedData: payload } }); 
 }
-
 export async function getEntry(id: string): Promise<Entry | undefined> {
   const entries = await getEntries();
   return entries.find((e) => e.id === id);
@@ -103,4 +121,8 @@ export async function importJSON(json: string): Promise<number> {
     .map((r) => r.data as Entry);
   await writeAll(valid);
   return valid.length;
+}
+
+export async function forceReEncrypt(entries: Entry[]): Promise<void> {
+  await writeAll(entries);
 }

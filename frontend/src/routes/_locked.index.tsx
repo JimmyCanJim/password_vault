@@ -4,11 +4,12 @@ import { Elephant } from "@/components/vault/Elephant";
 import { ElephantSilhouette } from "@/components/vault/ElephantSilhouette";
 import { lock } from "@/lib/pin";
 import { Lock, Settings } from "lucide-react";
+import ohmImg from "@/assets/flat-design-om-symbol.png";
 
 export const Route = createFileRoute("/_locked/")({
   head: () => ({
     meta: [
-      { title: "Welcome — Grandma's Vault" },
+      { title: "Welcome — Ouma's Vault" },
       { name: "description", content: "A calm home for your accounts and passwords." },
     ],
   }),
@@ -20,6 +21,15 @@ function Home() {
   return (
     <main className="relative min-h-screen flex flex-col items-center px-6 py-10 fade-up overflow-hidden">
       {/* Decorative elephants */}
+      <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center overflow-hidden">
+        <img 
+          src={ohmImg} 
+          alt="" 
+          aria-hidden="true"
+          className="w-[150%] sm:w-[120%] opacity-[0.05] mix-blend-multiply filter blur-[2px]"
+        />
+      </div>
+
       <ElephantSilhouette
         variant="walking"
         size={110}
@@ -62,7 +72,7 @@ function Home() {
         </div>
         <h1 className="text-4xl font-serif mb-2">Look who's back</h1>
         <p className="text-muted-foreground text-lg mb-10">
-          All your stuff. None of the snooping.
+          All your none-forgotten passwords all in one place. 
         </p>
 
         <Link
@@ -99,13 +109,13 @@ function Home() {
           }}
         >
           <p className="font-serif italic text-base leading-relaxed">
-            Happy Mother's Day, Grandma.
+            Happy Mother's Day, Mother Ouma.
             <br />
             You're 4'11" of pure trouble and I wouldn't trade you for anything.
-            Now stop writing passwords on sticky notes — I built you this.
+            Now stop writing passwords on sticky notes and on note books — I built you this.
           </p>
           <p className="font-serif text-lg mt-3" style={{ color: "var(--seal)" }}>
-            — Jared (the favorite grandkid)
+            — Jared (the favorite child)
           </p>
         </div>
       </footer>

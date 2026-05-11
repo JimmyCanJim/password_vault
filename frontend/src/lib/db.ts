@@ -1,29 +1,36 @@
-"use server"; // <-- Add this!
-import { MongoClient, ServerApiVersion } from 'mongodb';
+"use server"; 
 
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _mongoClientPromise: any;
 }
 
 const uri = process.env.MONGODB_URI || "";
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
 export async function getDb() {
   if (!uri) throw new Error('MONGODB_URI is missing. Run: wrangler secret put MONGODB_URI');
 
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, {
+  // --- CLOUDFLARE EDGE POLYFILL ---
+  if (typeof globalThis.require === "undefined") {
+    globalThis.require = function(mod: string) {
+      return {}; 
+    } as any;
+  }
+  // --------------------------------
+
+  // Dynamically import mongodb here so the polyfill above runs FIRST
+  const { MongoClient, ServerApiVersion } = await import('mongodb');
+
+  if (!globalThis._mongoClientPromise) {
+    const client = new MongoClient(uri, {
       serverApi: {
         version: ServerApiVersion.v1,
         strict: true,
         deprecationErrors: true,
       }
     });
-    global._mongoClientPromise = client.connect();
+    globalThis._mongoClientPromise = client.connect();
   }
   
-  const connectedClient = await global._mongoClientPromise;
+  const connectedClient = await globalThis._mongoClientPromise;
   return connectedClient.db("grandmas-vault");
 }
