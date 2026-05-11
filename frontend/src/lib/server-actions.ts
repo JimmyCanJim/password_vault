@@ -1,4 +1,4 @@
-// src/lib/server-actions.ts
+"use server"; // <-- THIS IS THE MAGIC WALL
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "./db";
 import { z } from "zod";

@@ -1,3 +1,4 @@
+"use server"; // <-- Add this!
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
 declare global {
@@ -10,9 +11,7 @@ let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
 export async function getDb() {
-  if (!uri) {
-    throw new Error('MONGODB_URI is missing. Set it with: wrangler secret put MONGODB_URI');
-  }
+  if (!uri) throw new Error('MONGODB_URI is missing. Run: wrangler secret put MONGODB_URI');
 
   if (!global._mongoClientPromise) {
     client = new MongoClient(uri, {
