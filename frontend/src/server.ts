@@ -1,14 +1,6 @@
 import "./lib/error-capture";
-
-import { createRequire } from "node:module";
-if (typeof globalThis.require === "undefined") {
-  globalThis.require = createRequire(import.meta.url);
-}
-// ----------------------------------------
-
-import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
-import { renderErrorPage } from "./lib/error-page";
+import { renderErrorPage } from "./lib/error-page"
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
