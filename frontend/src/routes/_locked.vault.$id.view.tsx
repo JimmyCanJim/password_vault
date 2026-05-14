@@ -17,17 +17,14 @@ function ViewEntry() {
   const navigate = useNavigate();
   const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
 
-  // Fetch the data on mount
   useEffect(() => {
     getEntry(id).then(setEntry);
   }, [id]);
 
-  // 1. Loading State
   if (entry === undefined) {
     return <div className="p-20 text-center font-serif italic text-muted-foreground">Unlocking...</div>;
   }
 
-  // 2. Not Found State
   if (!entry) {
     return (
       <main className="min-h-screen flex items-center justify-center px-6">
@@ -44,7 +41,6 @@ function ViewEntry() {
     );
   }
 
-  // 3. Success State
   return (
     <main className="min-h-screen pb-12 fade-up">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur rainbow-border-b px-4 py-3 flex items-center gap-3">
@@ -99,7 +95,7 @@ function ViewEntry() {
           type="button"
           onClick={async () => {
             if (confirm(`Delete "${entry.title}"?`)) {
-              await deleteEntry(entry.id); // Must await the async delete
+              await deleteEntry(entry.id); 
               toast.success("Deleted");
               navigate({ to: "/vault" });
             }
@@ -113,7 +109,6 @@ function ViewEntry() {
   );
 }
 
-// Helper component
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>

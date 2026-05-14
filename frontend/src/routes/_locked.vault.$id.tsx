@@ -14,20 +14,16 @@ function EditEntry() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   
-  // 1. Create a state to hold the entry while we wait for MongoDB
   const [entry, setEntry] = useState<Entry | null | undefined>(undefined);
 
-  // 2. Fetch the data when the page loads
   useEffect(() => {
     getEntry(id).then(setEntry);
   }, [id]);
 
-  // 3. Show a loading state while waiting
   if (entry === undefined) {
     return <div className="p-20 text-center font-serif italic text-muted-foreground">Loading...</div>;
   }
 
-  // 4. Handle if the item doesn't exist
   if (!entry) {
     return (
       <main className="min-h-screen flex items-center justify-center px-6">
@@ -44,7 +40,6 @@ function EditEntry() {
     );
   }
 
-  // 5. Render the form now that 'entry' is definitely an object, not a Promise!
   return (
     <main className="min-h-screen pb-12 fade-up">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
@@ -63,7 +58,6 @@ function EditEntry() {
           initial={entry}
           submitLabel="Save changes"
           onSubmit={async (input) => {
-            // Make sure to await the saveEntry call too!
             await saveEntry(input, id);
             toast.success("Saved");
             navigate({ to: "/vault/$id/view", params: { id } });

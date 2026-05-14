@@ -36,7 +36,7 @@ function SettingsPage() {
   };
 
   const handleExport = () => {
-    const blob = new Blob([exportJSON()], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportJSON())], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
