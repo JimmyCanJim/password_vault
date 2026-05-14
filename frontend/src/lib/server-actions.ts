@@ -7,7 +7,6 @@ const VAULT_ID = "grandma-main";
 export const savePinToMongo = createServerFn({ method: "POST" })
   .inputValidator(z.object({ salt: z.string(), hash: z.string() }))
   .handler(async ({ data }) => {
-    // dynamically import here!
     const { getDb } = await import("./db");
     const db = await getDb();
     const collection = db.collection("vaults");
@@ -21,7 +20,6 @@ export const savePinToMongo = createServerFn({ method: "POST" })
 
 export const getPinFromMongo = createServerFn({ method: "GET" })
   .handler(async () => {
-    // dynamically import here!
     const { getDb } = await import("./db");
     const db = await getDb();
     const collection = db.collection("vaults");
@@ -33,7 +31,6 @@ export const getPinFromMongo = createServerFn({ method: "GET" })
 export const saveEntriesToMongo = createServerFn({ method: "POST" })
   .inputValidator(z.object({ encryptedData: z.string() }))
   .handler(async ({ data }) => {
-    // dynamically import here!
     const { getDb } = await import("./db");
     const db = await getDb();
     const collection = db.collection("vaults");
@@ -47,7 +44,6 @@ export const saveEntriesToMongo = createServerFn({ method: "POST" })
 
 export const getEntriesFromMongo = createServerFn({ method: "GET" })
   .handler(async () => {
-    // dynamically import here!
     const { getDb } = await import("./db");
     const db = await getDb();
     const collection = db.collection("vaults");

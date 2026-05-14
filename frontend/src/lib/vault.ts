@@ -1,4 +1,3 @@
-// src/lib/vault.ts
 import { z } from "zod";
 import CryptoJS from "crypto-js";
 import { saveEntriesToMongo, getEntriesFromMongo } from "./server-actions";
@@ -35,7 +34,6 @@ export async function getEntries(): Promise<Entry[]> {
     const encryptedRaw = await getEntriesFromMongo();
     if (!encryptedRaw) return [];
     
-    // NEW: Handle proper AES decryption with IV
     const parts = encryptedRaw.split(":");
     if (parts.length !== 2) return []; 
     
@@ -60,9 +58,8 @@ export async function getEntries(): Promise<Entry[]> {
 }
 
 async function writeAll(entries: Entry[]): Promise<void> {
-  // NEW: Handle proper AES encryption with Random IV
   const key = CryptoJS.enc.Hex.parse(getEncryptionKey());
-  const iv = CryptoJS.lib.WordArray.random(128 / 8); // 16 random bytes
+  const iv = CryptoJS.lib.WordArray.random(128 / 8);
   
   const ciphertext = CryptoJS.AES.encrypt(JSON.stringify(entries), key, {
       iv: iv,
@@ -70,7 +67,6 @@ async function writeAll(entries: Entry[]): Promise<void> {
       padding: CryptoJS.pad.Pkcs7
   });
   
-  // Store IV and Ciphertext together
   const payload = iv.toString() + ":" + ciphertext.toString();
   await saveEntriesToMongo({ data: { encryptedData: payload } }); 
 }

@@ -1,4 +1,3 @@
-// src/lib/pin.ts
 import { savePinToMongo, getPinFromMongo } from "./server-actions";
 import { getEntries, forceReEncrypt } from "./vault"; // <-- NEW IMPORT
 
@@ -21,14 +20,12 @@ export async function hasPin(): Promise<boolean> {
   return pinData !== null;
 }
 
-// --- NEW MILITARY-GRADE CRYPTO FUNCTIONS ---
 function randomSalt(): string {
   const arr = new Uint8Array(16);
   crypto.getRandomValues(arr);
   return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// 1. Stretch the 5-digit PIN into a strong 256-bit Master Encryption Key
 export async function deriveMasterKey(pin: string, saltHex: string): Promise<string> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -44,13 +41,11 @@ export async function deriveMasterKey(pin: string, saltHex: string): Promise<str
   return Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// 2. Hash the Master Key so the database never sees the actual decryption key
 async function hashForDatabase(masterKeyHex: string): Promise<string> {
   const data = new TextEncoder().encode("SERVER_AUTH_" + masterKeyHex);
   const buf = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-// -------------------------------------------
 
 export async function setPin(pin: string): Promise<void> {
   const salt = randomSalt();
@@ -58,7 +53,7 @@ export async function setPin(pin: string): Promise<void> {
   const hash = await hashForDatabase(masterKey);
   
   await savePinToMongo({ data: { salt, hash } }); 
-  sessionStorage.setItem("vault.unlocked.key", masterKey); // Save the strong key!
+  sessionStorage.setItem("vault.unlocked.key", masterKey);
   setUnlocked(true);
 }
 
@@ -79,13 +74,10 @@ export async function verifyPin(pin: string): Promise<boolean> {
 export async function changePin(currentPin: string, newPin: string): Promise<boolean> {
   if (!(await verifyPin(currentPin))) return false;
   
-  // FIXED BUG: Fetch entries using the OLD key first
   const entries = await getEntries();
   
-  // Set the NEW pin (updates DB and sessionStorage with new key)
   await setPin(newPin);
   
-  // Re-encrypt all the entries with the NEW key and save to DB!
   await forceReEncrypt(entries);
   
   return true;
@@ -120,7 +112,7 @@ export function setUnlocked(state: boolean): void {
     sessionStorage.setItem(UNLOCK_KEY, "1");
   } else {
     sessionStorage.removeItem(UNLOCK_KEY);
-    sessionStorage.removeItem("vault.unlocked.key"); // CLEAR KEY ON LOCK
+    sessionStorage.removeItem("vault.unlocked.key");
   }
 }
 

@@ -9,15 +9,12 @@ const uri = process.env.MONGODB_URI || "";
 export async function getDb() {
   if (!uri) throw new Error('MONGODB_URI is missing. Run: wrangler secret put MONGODB_URI');
 
-  // --- CLOUDFLARE EDGE POLYFILL ---
   if (typeof globalThis.require === "undefined") {
     globalThis.require = function(mod: string) {
       return {}; 
     } as any;
   }
-  // --------------------------------
 
-  // Dynamically import mongodb here so the polyfill above runs FIRST
   const { MongoClient, ServerApiVersion } = await import('mongodb');
 
   if (!globalThis._mongoClientPromise) {
