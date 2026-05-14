@@ -18,3 +18,14 @@
 
 - ### __src/routes/_locked.tsx__ and __login.tsx__ (Route Gaurds):
     - Prevents users from accessing the /vault URLs without having a valid session token in their browser.
+
+- ### __Protection Against Physical Device Theft__: 
+    - __Volatile Memory:__ The master encryption key lives purely in a short-term browser memory. When the tb is closed the key gets removed immediately.
+    - __Three-Step Login and 2FA:__ The thief needs to know the vault name, the 8-digit pin needs access to the gmail to retrieve the 6-digit OTP. 3 layers of security.
+
+- ### __Api Layer:__
+    - __Strict Schema Rules:__ The database will physically reject any request that tries to delete a vault, upload massive files, or add unexpected data fields. It only accepts the exact 6 fields my app uses.
+
+    - __Zod Payload Validation:__ Before your Cloudflare Worker even talks to Firebase, it strictly validates the incoming data types using Zod. If a bot sends a number where a string should be, the server drops the request.
+
+    - __Expiring OTPs:__ The 6-digit email codes self-destruct after exactly 5 minutes, meaning an intercepted code is useless shortly after it is requested.

@@ -70,14 +70,14 @@ export const sendEmailOtp = createServerFn({ method: "POST" })
       if (snap.exists() && snap.data().email) {
          targetEmail = snap.data().email;
       } else {
-         return false; // Fail if we don't have an email on file
+         return false; 
       }
     }
     
     // 2. The Real Email Trigger!
     try {
       await resend.emails.send({
-        from: 'Vault Security <onboarding@resend.dev>', // Resend's default testing address
+        from: 'Vault Security <onboarding@resend.dev>', 
         to: targetEmail,
         subject: 'Your Vault Unlock Code',
         html: `
@@ -96,7 +96,6 @@ export const sendEmailOtp = createServerFn({ method: "POST" })
       return false;
     }
 
-    // Save the code to Firebase
     await setDoc(docRef, { 
       otpCode: otp, 
       otpExpires: Date.now() + 5 * 60 * 1000 

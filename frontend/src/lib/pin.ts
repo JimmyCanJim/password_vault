@@ -27,7 +27,6 @@ export async function hasPin(): Promise<boolean> {
   return pinData !== null;
 }
 
-// --- NEW MILITARY-GRADE CRYPTO FUNCTIONS ---
 function randomSalt(): string {
   const arr = new Uint8Array(16);
   crypto.getRandomValues(arr);
@@ -54,7 +53,6 @@ async function hashForDatabase(masterKeyHex: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-// -------------------------------------------
 
 export async function setPin(pin: string, vaultId: string, email?: string): Promise<void> {
   const salt = randomSalt();
@@ -90,10 +88,8 @@ export async function changePin(currentPin: string, newPin: string): Promise<boo
   const entries = await getEntries();
   const activeId = getActiveVaultId();
   
-  // Set the NEW pin (updates DB and sessionStorage with new key)
   await setPin(newPin, activeId);
   
-  // Re-encrypt all the entries with the NEW key and save to DB!
   await forceReEncrypt(entries);
   
   return true;
@@ -127,7 +123,7 @@ export function setUnlocked(state: boolean): void {
     sessionStorage.setItem(UNLOCK_KEY, "1");
   } else {
     sessionStorage.removeItem(UNLOCK_KEY);
-    sessionStorage.removeItem("vault.unlocked.key"); // CLEAR KEY ON LOCK
+    sessionStorage.removeItem("vault.unlocked.key");
   }
 }
 
@@ -150,7 +146,7 @@ export async function prepareLogin(vaultId: string, pin: string): Promise<string
   const hash = await hashForDatabase(masterKey);
   
   if (hash === pinData.hash) {
-    return masterKey; // Return the key, but do NOT unlock the vault yet!
+    return masterKey;
   }
   return null;
 }
