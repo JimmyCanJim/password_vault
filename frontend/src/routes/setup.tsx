@@ -1,15 +1,15 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+	import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { EnsoCircle } from "@/components/vault/EnsoCircle";
 import { Elephant } from "@/components/vault/Elephant";
 import { ElephantSilhouette } from "@/components/vault/ElephantSilhouette";
 import { PinPad } from "@/components/vault/PinPad";
-import { hasPin, setPin, validatePinComplexity } from "@/lib/pin";
+import { hasPin, setPin, validatePinComplexity, isVaultNameUnique, requestEmailCode, checkEmailCode } from "@/lib/pin";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/setup")({
-  beforeLoad: async () => { // Must be async
-    if (typeof window !== "undefined" && await hasPin()) { // Must await
+  beforeLoad: async () => {
+    if (typeof window !== "undefined" && await hasPin()) {
       throw redirect({ to: "/" });
     }
   },
@@ -19,30 +19,68 @@ export const Route = createFileRoute("/setup")({
 
 function SetupPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"create" | "confirm">("create");
+  const [step, setStep] = useState<"create" | "confirm" | "email" | "otp">("create");
+  
+  const [vaultName, setVaultName] = useState("");
   const [pin, setPinValue] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  
   const [saving, setSaving] = useState(false);
 
-  const complexityError = pin.length === 5 ? validatePinComplexity(pin) : null;
-  const canContinue = pin.length === 5 && !complexityError;
+  const complexityError = pin.length >= 8 ? validatePinComplexity(pin) : null;
+  const canContinue = pin.length >= 8 && !complexityError && vaultName.trim().length > 0;
 
-  const onContinue = () => {
+  const onContinue = async () => {
     if (!canContinue) return;
+    setSaving(true);
+    const isUnique = await isVaultNameUnique(vaultName.trim());
+    setSaving(false);
+    if (!isUnique) {
+      toast.error("That vault name is already taken!");
+      return;
+    }
     setStep("confirm");
   };
 
   const onConfirm = async () => {
-    if (confirm.length !== 5) return;
+    if (confirm.length < 8) return;
     if (confirm !== pin) {
       toast.error("PINs don't match — try again");
       setConfirm("");
       return;
     }
+    setStep("email");
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value);
+
+  const onEmailSubmit = async () => {
+    if (!email.includes("@") || !email.includes(".")) return;
+    
     setSaving(true);
-    await setPin(pin);
-    toast.success("Your vault is ready");
-    navigate({ to: "/" });
+    await requestEmailCode(vaultName.trim(), email.trim());
+    setSaving(false);
+    
+    setStep("otp");
+    toast.info("A 6-digit code has been sent to your email");
+  };
+
+  const onOtpSubmit = async () => {
+    if (otpCode.length !== 6) return;
+    
+    setSaving(true);
+    const isValid = await checkEmailCode(vaultName.trim(), otpCode);
+    if (isValid) {
+      await setPin(pin, vaultName.trim(), email.trim());
+      toast.success("Your vault is ready");
+      navigate({ to: "/" });
+    } else {
+      toast.error("Incorrect or expired code");
+      setOtpCode("");
+    }
+    setSaving(false);
   };
 
   return (
@@ -54,64 +92,64 @@ function SetupPage() {
           <EnsoCircle size={180} className="absolute inset-0" />
           <Elephant size={130} className="relative z-10" />
         </div>
+        
         {step === "create" && (
-          <p className="font-serif italic text-sm mb-3" style={{ color: "var(--seal)" }}>
-            From Jared. Happy Mother's Day.
-          </p>
-        )}
-        <h1 className="text-3xl font-serif mb-2">
-          {step === "create" ? "Pick a PIN" : "One more time, for the record"}
-        </h1>
-        <p className="text-muted-foreground mb-6">
-          {step === "create"
-            ? "Five digits. Not your birthday. Not 12345. I will know."
-            : "Type it again so I know you weren't bluffing."}
-        </p>
-
-        {step === "create" ? (
           <>
+            <p className="font-serif italic text-sm mb-3" style={{ color: "var(--seal)" }}>
+              From Jared. Happy Mother's Day.
+            </p>
+            <h1 className="text-3xl font-serif mb-2">Pick a PIN</h1>
+            <p className="text-muted-foreground mb-6">At least 8 digits. Not your birthday. Not 12345. I will know.</p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Who is this vault for?</label>
+              <input 
+                type="text" 
+                value={vaultName} 
+                onChange={(e) => setVaultName(e.target.value)} 
+                placeholder="e.g. Gran" 
+                className="w-full text-center text-xl p-3 border-b-2 border-primary bg-transparent focus:outline-none"
+              />
+            </div>
             <PinPad value={pin} onChange={setPinValue} />
             <div className="min-h-[2rem] mt-4 text-sm">
-              {pin.length === 5 && complexityError && (
+              {pin.length >= 8 && complexityError && (
                 <span className="text-destructive">{complexityError}</span>
               )}
-              {pin.length === 5 && !complexityError && (
+              {pin.length >= 8 && !complexityError && (
                 <span className="text-teal">Looks good ✓</span>
               )}
-              {pin.length > 0 && pin.length < 5 && (
-                <span className="text-muted-foreground">{5 - pin.length} more…</span>
+              {pin.length > 0 && pin.length < 8 && (
+                <span className="text-muted-foreground">{8 - pin.length} more…</span>
               )}
             </div>
             <button
               type="button"
               onClick={onContinue}
-              disabled={!canContinue}
+              disabled={!canContinue || saving}
               className="mt-4 w-full rounded-full bg-primary text-primary-foreground py-4 text-lg font-medium ink-shadow disabled:opacity-40 active:scale-[0.98] transition"
             >
-              Continue
+              {saving ? "Checking..." : "Continue"}
             </button>
-
-            <details className="mt-6 text-left text-sm text-muted-foreground">
-              <summary className="cursor-pointer">PIN tips</summary>
-              <ul className="mt-2 list-disc pl-5 space-y-1">
-                <li>Exactly 5 digits</li>
-                <li>Not all the same number</li>
-                <li>Not a straight sequence (12345, 54321)</li>
-                <li>No three of the same digit in a row</li>
-                <li>Avoid common ones like 13579 or 24680</li>
-              </ul>
-            </details>
+            <div className="mt-8">
+              <Link to="/login" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+                Already have a vault? Sign in
+              </Link>
+            </div>
           </>
-        ) : (
+        )}
+        
+        {step === "confirm" && (
           <>
+            <h1 className="text-3xl font-serif mb-2">One more time, for the record</h1>
+            <p className="text-muted-foreground mb-6">Type it again so I know you weren't bluffing.</p>
+
             <PinPad value={confirm} onChange={setConfirm} />
+            
             <div className="flex gap-3 mt-6">
               <button
                 type="button"
-                onClick={() => {
-                  setStep("create");
-                  setConfirm("");
-                }}
+                onClick={() => { setStep("create"); setConfirm(""); }}
                 className="flex-1 rounded-full border border-border py-4 text-base hover:bg-secondary"
               >
                 Back
@@ -119,10 +157,82 @@ function SetupPage() {
               <button
                 type="button"
                 onClick={onConfirm}
-                disabled={confirm.length !== 5 || saving}
+                disabled={confirm.length < 8}
                 className="flex-1 rounded-full bg-primary text-primary-foreground py-4 text-base font-medium ink-shadow disabled:opacity-40"
               >
-                {saving ? "Saving…" : "Save PIN"}
+                Next
+              </button>
+            </div>
+          </>
+        )}
+        
+        {step === "email" && (
+          <>
+            <h1 className="text-3xl font-serif mb-2">Add your email address</h1>
+            <p className="text-muted-foreground mb-6">We'll use this to send you a secure code when you log in.</p>
+            
+            <div className="mb-6">
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder="gran@example.com"
+                className="w-full text-center text-xl p-3 border-b-2 border-primary bg-transparent focus:outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setStep("confirm")}
+                className="flex-1 rounded-full border border-border py-4 text-base hover:bg-secondary"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onEmailSubmit}
+                disabled={!email.includes("@") || !email.includes(".") || saving}
+                className="flex-1 rounded-full bg-primary text-primary-foreground py-4 text-base font-medium ink-shadow disabled:opacity-40"
+              >
+                {saving ? "Sending..." : "Send Code"}
+              </button>
+            </div>
+          </>
+        )}
+        
+        {step === "otp" && (
+          <>
+            <h1 className="text-3xl font-serif mb-2">Verify it's you</h1>
+            <p className="text-muted-foreground mb-6">Enter the 6-digit code sent to {email}.</p>
+            
+            <div className="mb-6">
+              <input
+                type="text"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => { if (e.key === "Enter") onOtpSubmit(); }}
+                placeholder="• • • • • •"
+                className="w-full text-center tracking-[1em] text-2xl p-3 border-b-2 border-primary bg-transparent focus:outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => { setStep("email"); setOtpCode(""); }}
+                className="flex-1 rounded-full border border-border py-4 text-base hover:bg-secondary"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onOtpSubmit}
+                disabled={otpCode.length !== 6 || saving}
+                className="flex-1 rounded-full bg-primary text-primary-foreground py-4 text-base font-medium ink-shadow disabled:opacity-40"
+              >
+                {saving ? "Verifying..." : "Create Vault"}
               </button>
             </div>
           </>

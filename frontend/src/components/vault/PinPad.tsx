@@ -6,7 +6,7 @@ type Props = {
   length?: number;
 };
 
-export function PinPad({ value, onChange, length = 5 }: Props) {
+export function PinPad({ value, onChange, length = 8 }: Props) {
   const press = (d: string) => {
     if (value.length >= length) return;
     onChange(value + d);
@@ -14,7 +14,7 @@ export function PinPad({ value, onChange, length = 5 }: Props) {
   const back = () => onChange(value.slice(0, -1));
   const clear = () => onChange("");
 
-  const dotColors = ["var(--teal)", "var(--coral)", "var(--amber)", "var(--indigo)", "var(--seal)"];
+  const dotColors = ["var(--teal)", "var(--teal)", "var(--teal)", "var(--teal)", "var(--teal)", "var(--teal)",];
   const dots = Array.from({ length }, (_, i) => {
     const filled = i < value.length;
     const c = dotColors[i % dotColors.length];
